@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#12211D">
+<title>Registro de Horas</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #F1F3F1;
+    --paper: #FFFFFF;
+    --line: #DDE3DF;
+    --ink: #16211E;
+    --ink-soft: #5B6864;
+    --entrada: #1B6F5C;
+    --entrada-dark: #124E41;
+    --salida: #B5561F;
+    --salida-dark: #8A4318;
+    --pending: #C7952E;
+    --weekend: #2159A6;
+    --sent: #1B6F5C;
+    --danger: #B3382C;
+    --radius: 14px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--bg);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 28px 28px;
+    background-position: -1px -1px;
+    color: var(--ink);
+    font-family: 'Work Sans', system-ui, sans-serif;
+    min-height: 100vh;
+    display:flex;
+    justify-content:center;
+  }
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+  .app{
+    width:100%;
+    max-width: 440px;
+    min-height:100vh;
+    padding: calc(20px + var(--safe-top)) 18px calc(28px + var(--safe-bottom));
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
+
+  /* Header */
+  header{ display:flex; flex-direction:column; gap:4px; }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color: var(--ink-soft);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .eyebrow .dot{ width:6px; height:6px; border-radius:50%; background: var(--entrada); }
+  .eyebrow .dot.off{ background: var(--ink-soft); }
+  h1{ font-size:20px; margin:0; font-weight:700; letter-spacing:-.01em; }
+  .app-subtitle{ font-size:12px; color: var(--ink-soft); font-weight:500; margin-top:-2px; }
+  .date-line{ font-size:13px; color: var(--ink-soft); }
+
+  /* Clock card */
+  .clock-card{
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px 18px;
+    text-align:center;
+    position:relative;
+    overflow:hidden;
+  }
+  .clock-card::before{
+    content:"";
+    position:absolute; inset:0 0 auto 0; height:4px;
+    background: repeating-linear-gradient(90deg, var(--ink) 0 8px, transparent 8px 16px);
+    opacity:.06;
+  }
+  .clock{
+    font-size: 46px;
+    font-weight:600;
+    letter-spacing: .01em;
+    line-height:1;
+    font-variant-numeric: tabular-nums;
+  }
+  .clock .secs{ font-size: 22px; color: var(--ink-soft); }
+  .status-row{
+    margin-top:14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    font-size:13px;
+    color: var(--ink-soft);
+  }
+  .status-badge{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:4px 10px;
+    border-radius:100px;
+    font-size:12px;
+    font-weight:600;
+    font-family:'IBM Plex Mono', monospace;
+    letter-spacing:.03em;
+  }
+  .status-badge.in{ background: rgba(27,111,92,.12); color: var(--entrada-dark); }
+  .status-badge.out{ background: rgba(181,86,31,.12); color: var(--salida-dark); }
+  .status-badge.weekend-count{ background: rgba(33,89,166,.12); color: var(--weekend); }
+  .status-badge.weekend-count.maxed{ background: rgba(179,56,44,.12); color: var(--danger); }
+
+  /* Action buttons */
+  .actions{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+  .btn{
+    border:none;
+    border-radius: var(--radius);
+    padding: 20px 10px;
+    font-family:'Work Sans', sans-serif;
+    font-size:16px;
+    font-weight:700;
+    color:#fff;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    cursor:pointer;
+    transition: transform .08s ease, filter .15s ease;
+  }
+  .btn:active{ transform: scale(.97); }
+  .btn svg{ width:22px; height:22px; }
+  .btn.entrada{ background: var(--entrada); }
+  .btn.entrada:disabled{ background:#B9C7C1; color:#7C8A85; }
+  .btn.salida{ background: var(--salida); }
+  .btn.salida:disabled{ background:#D9C2AE; color:#9C8873; }
+  .btn small{ font-family:'IBM Plex Mono', monospace; font-weight:500; font-size:11px; opacity:.85; }
+
+  /* Section titles */
+  .section-title{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-top:4px;
+  }
+  .section-title span{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color: var(--ink-soft);
+  }
+  .section-title button{
+    background:none; border:none; padding:0;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px; text-decoration:underline;
+    color: var(--ink-soft);
+    cursor:pointer;
+  }
+
+  /* Log */
+  .log{
+    background: var(--paper);
+    border:1px solid var(--line);
+    border-radius: var(--radius);
+    overflow:hidden;
+  }
+  .log-empty{
+    padding: 26px 16px;
+    text-align:center;
+    color: var(--ink-soft);
+    font-size:13px;
+  }
+  .log-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:12px 14px;
+    border-bottom:1px solid var(--line);
+  }
+  .log-row:last-child{ border-bottom:none; }
+  .log-tag{
+    width:8px; height:8px; border-radius:2px; flex:none;
+  }
+  .log-tag.entrada{ background: var(--entrada); }
+  .log-tag.salida{ background: var(--salida); }
+  .log-row.weekend{ background: rgba(33,89,166,.06); }
+  .log-row.weekend .log-tag{ background: var(--weekend); }
+  .log-row.weekend .log-hours{ color: var(--weekend); }
+  .log-main{ flex:1; min-width:0; }
+  .log-type{ font-size:14px; font-weight:600; }
+  .log-time{ font-size:12px; color: var(--ink-soft); font-family:'IBM Plex Mono', monospace; }
+  .log-state{
+    font-size:10px;
+    font-family:'IBM Plex Mono', monospace;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    padding:3px 7px;
+    border-radius:100px;
+    flex:none;
+  }
+  .log-state.pendiente{ background: rgba(199,149,46,.15); color: #8A6414; }
+  .log-state.enviado{ background: rgba(27,111,92,.12); color: var(--entrada-dark); }
+  .log-hours{ font-size:11.5px; color: var(--ink-soft); margin-top:2px; }
+  .log-hours.extra{ color: var(--danger); font-weight:600; }
+  .log-weekend-badge{ color: var(--weekend); font-weight:600; }
+  .extra-note{
+    background: rgba(179,56,44,.08);
+    border:1px solid rgba(179,56,44,.25);
+    color: var(--danger);
+    border-radius:10px;
+    padding:9px 12px;
+    font-size:12.5px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+
+  /* Send bar */
+  .send-bar{
+    background: var(--paper);
+    border:1px solid var(--line);
+    border-radius: var(--radius);
+    padding:14px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .send-bar .info{ flex:1; font-size:12.5px; color: var(--ink-soft); line-height:1.4; }
+  .send-bar .info b{ color: var(--ink); }
+  .send-btn{
+    background: var(--ink);
+    color:#fff;
+    border:none;
+    border-radius:10px;
+    padding:11px 16px;
+    font-size:13px;
+    font-weight:700;
+    font-family:'Work Sans', sans-serif;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .send-btn:disabled{ background:#B7BEBA; cursor:default; }
+  .send-btn.loading::after{
+    content:"…";
+  }
+
+  .toast{
+    position:fixed;
+    left:50%; bottom: calc(24px + var(--safe-bottom));
+    transform: translateX(-50%) translateY(20px);
+    background: var(--ink);
+    color:#fff;
+    padding:10px 16px;
+    border-radius:100px;
+    font-size:13px;
+    opacity:0;
+    pointer-events:none;
+    transition: opacity .25s ease, transform .25s ease;
+    max-width: 90%;
+    text-align:center;
+  }
+  .toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+  .toast.err{ background: var(--danger); }
+
+  /* Settings */
+  .gear{
+    background:none; border:none; color: var(--ink-soft);
+    display:flex; align-items:center; gap:6px;
+    font-family:'IBM Plex Mono', monospace; font-size:11px;
+    padding:0; cursor:pointer;
+  }
+  .gear svg{ width:14px; height:14px; }
+
+  .sheet-backdrop{
+    position:fixed; inset:0; background: rgba(15,20,18,.45);
+    display:none; align-items:flex-end; justify-content:center; z-index:50;
+  }
+  .sheet-backdrop.open{ display:flex; }
+  .sheet{
+    background: var(--paper);
+    width:100%; max-width:440px;
+    border-radius: 18px 18px 0 0;
+    padding: 20px 18px calc(20px + var(--safe-bottom));
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .sheet h2{ margin:0; font-size:16px; }
+  .sheet p{ margin:0; font-size:12.5px; color: var(--ink-soft); line-height:1.5; }
+  .sheet input, .sheet select{
+    width:100%;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:12px;
+    font-size:13px;
+    font-family:'IBM Plex Mono', monospace;
+    color: var(--ink);
+    background: var(--bg);
+  }
+  .sheet-actions{ display:flex; gap:10px; margin-top:4px; }
+  .sheet-actions button{
+    flex:1;
+    border:none;
+    border-radius:10px;
+    padding:12px;
+    font-weight:700;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .sheet-actions .cancel{ background: var(--bg); color: var(--ink-soft); border:1px solid var(--line); }
+  .sheet-actions .save{ background: var(--ink); color:#fff; }
+  .name-field{
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .name-field label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px; letter-spacing:.05em; text-transform:uppercase;
+    color: var(--ink-soft);
+  }
+
+  /* Who bar */
+  .who-bar{
+    background: var(--paper);
+    border:1px solid var(--line);
+    border-radius: var(--radius);
+    padding:12px 14px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .who-bar .who-label{ font-size:11px; color: var(--ink-soft); font-family:'IBM Plex Mono', monospace; text-transform:uppercase; letter-spacing:.06em; }
+  .who-bar .who-name{ font-size:16px; font-weight:700; }
+  .who-btn{
+    background: var(--bg);
+    border:1px solid var(--line);
+    border-radius:100px;
+    padding:8px 14px;
+    font-size:12.5px;
+    font-weight:600;
+    color: var(--ink);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+
+  .person-option{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:13px 4px;
+    border-bottom:1px solid var(--line);
+    font-size:15px;
+    cursor:pointer;
+  }
+  .person-option:last-child{ border-bottom:none; }
+  .person-option.active{ font-weight:700; color: var(--entrada-dark); }
+  .person-list-wrap{ max-height: 46vh; overflow-y:auto; }
+  .empty-roster{ font-size:12.5px; color: var(--ink-soft); padding: 10px 2px; }
+
+  .log-name{ font-size:11.5px; color: var(--ink-soft); }
+
+  /* Roster admin inside settings */
+  .roster-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:9px 2px;
+    border-bottom:1px solid var(--line);
+    font-size:13.5px;
+    gap:8px;
+  }
+  .roster-row:last-child{ border-bottom:none; }
+  .roster-row .roster-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .roster-row .roster-btns{ display:flex; gap:4px; flex:none; }
+  .roster-row button{
+    background:none; border:1px solid var(--line); border-radius:8px;
+    font-family:'IBM Plex Mono', monospace; font-size:11px;
+    cursor:pointer; padding:5px 8px;
+  }
+  .roster-row .link{ color: var(--ink-soft); }
+  .roster-row .quitar{ color: var(--danger); border-color: rgba(179,56,44,.3); }
+
+  .phone-lock-card{
+    background: var(--paper);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:12px;
+    font-size:12.5px;
+    color: var(--ink-soft);
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .phone-lock-card b{ color: var(--ink); }
+  .lock-badge{
+    display:inline-flex; align-items:center; gap:4px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color: var(--ink-soft);
+  }
+  .add-person-row{ display:flex; gap:8px; margin-top:8px; }
+  .add-person-row input{ flex:1; }
+  .add-person-row select{
+    flex:none; width:auto;
+    border:1px solid var(--line); border-radius:10px;
+    padding:0 8px; font-size:12px; font-family:'IBM Plex Mono', monospace;
+    background: var(--bg); color: var(--ink);
+  }
+  .add-person-row button{
+    background: var(--entrada); color:#fff; border:none;
+    border-radius:10px; padding:0 16px; font-weight:700; font-size:13px; cursor:pointer;
+  }
+  .divider{ height:1px; background: var(--line); margin:4px 0; }
+
+  /* Alarma de 12 horas */
+  .alarm-backdrop{
+    position:fixed; inset:0; background: rgba(15,20,18,.65);
+    display:none; align-items:center; justify-content:center; z-index:60;
+    padding:20px;
+  }
+  .alarm-backdrop.open{ display:flex; }
+  .alarm-card{
+    background: var(--paper);
+    border-radius:18px;
+    padding:26px 22px;
+    width:100%; max-width:380px;
+    text-align:center;
+    animation: alarmPulse 1.1s ease-in-out infinite;
+  }
+  @keyframes alarmPulse{
+    0%, 100%{ box-shadow: 0 0 0 0 rgba(181,86,31,.35); }
+    50%{ box-shadow: 0 0 0 14px rgba(181,86,31,0); }
+  }
+  .alarm-icon{ font-size:38px; }
+  .alarm-title{ font-size:18px; font-weight:700; margin:8px 0 4px; }
+  .alarm-sub{ font-size:13px; color: var(--ink-soft); margin-bottom:18px; }
+  .alarm-actions{ display:flex; flex-direction:column; gap:10px; }
+  .alarm-actions button{
+    border:none; border-radius:12px; padding:13px; font-weight:700; font-size:14px; cursor:pointer;
+  }
+  .alarm-actions .primary{ background: var(--salida); color:#fff; }
+  .alarm-actions .secondary{ background: var(--bg); color: var(--ink); border:1px solid var(--line); }
+  .notif-status{ font-size:12.5px; color: var(--ink-soft); }
+  .notif-status b{ color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="eyebrow"><span class="dot" id="connDot"></span><span id="connLabel">Sin configurar</span></div>
+    <h1 id="mainTitle">Registro de Horas</h1>
+    <div class="date-line" id="dateLine">—</div>
+  </header>
+
+  <div class="clock-card">
+    <div class="clock mono"><span id="hm">00:00</span><span class="secs" id="ss">:00</span></div>
+    <div class="status-row">
+      <span id="statusText">Sin marcar hoy</span>
+      <span class="status-badge out" id="statusBadge">FUERA</span>
+    </div>
+    <div class="status-row" id="tripsRow" style="display:none; margin-top:6px;">
+      <span id="tripsLabel">Viajes de hoy (fin de semana)</span>
+      <span class="status-badge" id="tripsBadge">0/10</span>
+    </div>
+  </div>
+
+  <div class="who-bar">
+    <div>
+      <div class="who-label">Marca como</div>
+      <div class="who-name" id="whoName">Sin seleccionar</div>
+    </div>
+    <button class="who-btn" id="whoBtn">Cambiar</button>
+  </div>
+
+  <div class="actions">
+    <button class="btn entrada" id="btnEntrada">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+      Marcar Entrada
+      <small id="lastEntradaLbl">—</small>
+    </button>
+    <button class="btn salida" id="btnSalida">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Marcar Salida
+      <small id="lastSalidaLbl">—</small>
+    </button>
+  </div>
+
+  <div class="section-title">
+    <span>Registros de hoy</span>
+    <button class="gear" id="openSettings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Ajustes
+    </button>
+  </div>
+
+  <div class="log" id="logList">
+    <div class="log-empty">Todavía no hay registros hoy.</div>
+  </div>
+
+  <div class="send-bar">
+    <div class="info"><b id="pendingCount">0</b> registro(s) pendiente(s) de enviar</div>
+    <button class="send-btn" id="btnEnviar">Enviar</button>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="sheet-backdrop" id="settingsBackdrop">
+  <div class="sheet">
+    <h2>Ajustes de envío</h2>
+    <p>Pegá aquí la URL de tu Google Apps Script (Web App) para que los registros se envíen a tu hoja de Excel/Sheets en Drive.</p>
+    <div class="name-field">
+      <label>URL del Web App</label>
+      <input type="url" id="webhookInput" placeholder="https://script.google.com/macros/s/.../exec">
+    </div>
+    <div class="sheet-actions">
+      <button class="cancel" id="cancelSettings">Cancelar</button>
+      <button class="save" id="saveSettings">Guardar</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <h2>Este teléfono</h2>
+    <div class="phone-lock-card" id="phoneLockCard"></div>
+
+    <div class="divider"></div>
+
+    <h2>Aviso de 12 horas</h2>
+    <p>Cuando se cumplan 12 horas desde la entrada, la app avisa con sonido y vibración. Si se pospone, vuelve a avisar cada hora hasta marcar la salida. Funciona mientras el teléfono esté encendido y la app abierta (aunque sea en segundo plano).</p>
+    <div class="notif-status" id="notifStatus">Verificando permisos…</div>
+    <button class="save" id="activarNotifBtn" style="margin-top:6px;">Activar notificaciones</button>
+
+    <div class="divider"></div>
+
+    <h2>Personal registrado</h2>
+    <p>Agregar o quitar personas pide el código de administrador. "Enlace" copia el link personal para instalar la app ya asignada a esa persona.</p>
+    <div id="rosterAdminList"></div>
+    <div class="add-person-row">
+      <input type="text" id="newPersonInput" placeholder="Nombre nuevo">
+      <select id="newPersonDept">
+        <option value="chofer">Chofer</option>
+        <option value="administrativo">Administrativo</option>
+        <option value="coordinador_nocturno">Coordinador Nocturno (23:00-06:00)</option>
+      </select>
+      <button id="addPersonBtn">Agregar</button>
+    </div>
+    <button class="gear" id="refreshRosterBtn" style="margin-top:4px;">Actualizar lista desde Drive</button>
+
+    <div class="divider"></div>
+
+    <h2>Administradores</h2>
+    <p>Solo con el PIN principal se agregan o quitan administradores. Cada uno recibe su propio código para editar personal o corregir marcas, y sus acciones quedan registradas con su nombre.</p>
+    <div id="adminList"></div>
+    <div class="add-person-row">
+      <input type="text" id="newAdminNombre" placeholder="Nombre del admin">
+      <input type="text" id="newAdminCodigo" placeholder="Código">
+      <button id="addAdminBtn">Agregar</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <h2>PIN principal</h2>
+    <p>El PIN principal puede hacer cualquier cosa en la app: administrar personal, corregir marcas y gestionar administradores. Cambiarlo cede el control total a quien reciba el PIN nuevo — el anterior deja de funcionar de inmediato.</p>
+    <button class="gear" id="cambiarPinBtn">Cambiar PIN principal (ceder control)</button>
+
+    <div class="divider"></div>
+
+    <h2>Corregir un registro</h2>
+    <p>Buscá por persona y fecha, corregí la hora y guardá. Pide el código de administrador.</p>
+    <div class="name-field">
+      <label>Persona</label>
+      <select id="correccionNombre"></select>
+    </div>
+    <div class="name-field">
+      <label>Fecha</label>
+      <input type="date" id="correccionFecha">
+    </div>
+    <button class="save" id="buscarRegistrosBtn" style="margin-top:6px;">Buscar registros</button>
+    <div id="correccionResultados" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="personBackdrop">
+  <div class="sheet">
+    <h2>¿Quién marca?</h2>
+    <div class="person-list-wrap" id="personList"></div>
+    <div class="sheet-actions">
+      <button class="cancel" id="cancelPerson">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="alarm-backdrop" id="alarmBackdrop">
+  <div class="alarm-card">
+    <div class="alarm-icon">⏰</div>
+    <div class="alarm-title">¡Se cumplieron 12 horas!</div>
+    <div class="alarm-sub" id="alarmSub">Desde acá cualquier minuto adicional se cuenta como hora extra.</div>
+    <div class="alarm-actions">
+      <button class="primary" id="alarmMarcarSalida">Marcar salida ahora</button>
+      <button class="secondary" id="alarmPosponer">Posponer 1 hora</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const LS_RECORDS = 'rh_records';
+  const LS_WEBHOOK = 'rh_webhook';
+  const LS_ROSTER = 'rh_roster';
+  const LS_CURRENT_USER = 'rh_current_user';
+  const LS_LOCKED_USER = 'rh_locked_user';
+  const LS_ALARMS = 'rh_alarms';
+
+  const $ = id => document.getElementById(id);
+  const hmEl = $('hm'), ssEl = $('ss'), dateLine = $('dateLine');
+  const statusText = $('statusText'), statusBadge = $('statusBadge');
+  const btnEntrada = $('btnEntrada'), btnSalida = $('btnSalida');
+  const tripsRow = $('tripsRow'), tripsBadge = $('tripsBadge'), tripsLabel = $('tripsLabel');
+  const lastEntradaLbl = $('lastEntradaLbl'), lastSalidaLbl = $('lastSalidaLbl');
+  const logList = $('logList');
+  const pendingCount = $('pendingCount'), btnEnviar = $('btnEnviar');
+  const toast = $('toast');
+  const connDot = $('connDot'), connLabel = $('connLabel');
+  const settingsBackdrop = $('settingsBackdrop'), webhookInput = $('webhookInput');
+  const whoName = $('whoName'), whoBtn = $('whoBtn');
+  const mainTitle = $('mainTitle');
+  const personBackdrop = $('personBackdrop'), personList = $('personList');
+  const rosterAdminList = $('rosterAdminList'), newPersonInput = $('newPersonInput');
+  const phoneLockCard = $('phoneLockCard');
+  const alarmBackdrop = $('alarmBackdrop'), alarmSub = $('alarmSub');
+  const notifStatus = $('notifStatus'), activarNotifBtn = $('activarNotifBtn');
+
+  function pad(n){ return n.toString().padStart(2,'0'); }
+  const LIMITE_ORDINARIAS_CHOFER = 12;
+  const LIMITE_ORDINARIAS_ADMIN = 8;
+  const LIMITE_ORDINARIAS_NOCTURNO = 7; // Coordinador nocturno: turno fijo 23:00 a 06:00
+  function limiteOrdinarias(departamento){
+    if(departamento === 'administrativo') return LIMITE_ORDINARIAS_ADMIN;
+    if(departamento === 'coordinador_nocturno') return LIMITE_ORDINARIAS_NOCTURNO;
+    return LIMITE_ORDINARIAS_CHOFER;
+  }
+  function etiquetaDepartamento(departamento){
+    if(departamento === 'administrativo') return 'Administrativo';
+    if(departamento === 'coordinador_nocturno') return 'Coord. Nocturno';
+    return 'Chofer';
+  }
+  const MAX_VIAJES_FIN_DE_SEMANA = 10;
+  function esFinDeSemana(fechaStr){
+    // fechaStr en formato YYYY-MM-DD. new Date('YYYY-MM-DD') se interpreta en UTC,
+    // así que se arma con componentes locales para no correr de día por el huso horario.
+    const partes = (fechaStr || '').split('-').map(Number);
+    if(partes.length !== 3) return false;
+    const d = new Date(partes[0], partes[1] - 1, partes[2]);
+    const dia = d.getDay(); // 0 = domingo, 6 = sábado
+    return dia === 0 || dia === 6;
+  }
+  function formatHorasMin(decimalHoras){
+    const totalMin = Math.round(decimalHoras * 60);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return h + 'h' + (m > 0 ? ' ' + m + 'm' : '');
+  }
+  function todayKey(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  function loadRecords(){ try{ return JSON.parse(localStorage.getItem(LS_RECORDS)||'[]'); }catch(e){ return []; } }
+  function saveRecords(r){ localStorage.setItem(LS_RECORDS, JSON.stringify(r)); }
+  function getWebhook(){ return localStorage.getItem(LS_WEBHOOK) || ''; }
+
+  /* ---------- Aviso de 12 horas ---------- */
+  const HORAS_AVISO = 12;
+  const REPETIR_CADA_HORAS = 1;
+  let alarmSonando = false;
+  let alarmAudioCtx = null;
+  let alarmBeepInterval = null;
+
+  function getAlarms(){ try{ return JSON.parse(localStorage.getItem(LS_ALARMS)||'{}'); }catch(e){ return {}; } }
+  function saveAlarms(obj){ localStorage.setItem(LS_ALARMS, JSON.stringify(obj)); }
+
+  function programarAlarma(nombre, desdeTimestamp){
+    const alarms = getAlarms();
+    const objetivo = new Date(new Date(desdeTimestamp).getTime() + HORAS_AVISO * 3600000);
+    alarms[nombre] = objetivo.toISOString();
+    saveAlarms(alarms);
+  }
+  function posponerAlarma(nombre){
+    const alarms = getAlarms();
+    alarms[nombre] = new Date(Date.now() + REPETIR_CADA_HORAS * 3600000).toISOString();
+    saveAlarms(alarms);
+  }
+  function cancelarAlarma(nombre){
+    const alarms = getAlarms();
+    delete alarms[nombre];
+    saveAlarms(alarms);
+  }
+
+  function pedirPermisoNotificaciones(){
+    if(!('Notification' in window)){
+      notifStatus.innerHTML = 'Este navegador no soporta notificaciones del sistema. El aviso en pantalla, el sonido y la vibración van a funcionar igual mientras la app esté abierta.';
+      return;
+    }
+    if(Notification.permission === 'granted'){
+      notifStatus.innerHTML = '<b>Notificaciones activadas.</b> Vas a recibir el aviso aunque tengas la app en segundo plano.';
+      activarNotifBtn.style.display = 'none';
+    } else if(Notification.permission === 'denied'){
+      notifStatus.innerHTML = 'Las notificaciones están bloqueadas para esta app en el navegador. El aviso en pantalla, el sonido y la vibración van a funcionar igual mientras la app esté abierta.';
+      activarNotifBtn.style.display = 'none';
+    } else {
+      notifStatus.textContent = 'Sin activar todavía. El aviso funciona igual dentro de la app, pero activar notificaciones ayuda a que se note más.';
+      activarNotifBtn.style.display = 'inline-block';
+    }
+  }
+
+  activarNotifBtn.addEventListener('click', async () => {
+    if(!('Notification' in window)) return;
+    await Notification.requestPermission();
+    pedirPermisoNotificaciones();
+  });
+
+  function reproducirSonidoAlarma(){
+    try{
+      if(!alarmAudioCtx){
+        alarmAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      const ctx = alarmAudioCtx;
+      const beep = () => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.4);
+      };
+      beep();
+      let veces = 1;
+      clearInterval(alarmBeepInterval);
+      alarmBeepInterval = setInterval(() => {
+        beep();
+        veces++;
+        if(veces >= 4) clearInterval(alarmBeepInterval);
+      }, 550);
+    }catch(e){ /* audio no disponible */ }
+  }
+
+  function dispararAlarma(nombre){
+    if(alarmSonando) return;
+    alarmSonando = true;
+
+    reproducirSonidoAlarma();
+    if(navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 500]);
+
+    if('Notification' in window && Notification.permission === 'granted'){
+      try{
+        new Notification('Se cumplieron 12 horas · ' + nombre, {
+          body: 'Marcá la salida o posponé el aviso 1 hora desde la app.',
+          tag: 'aviso-12h'
+        });
+      }catch(e){ /* algunos navegadores en standalone requieren el service worker */ }
+    }
+
+    alarmSub.textContent = nombre + ' lleva 12 horas o más trabajadas. Desde ahora cualquier minuto adicional cuenta como hora extra.';
+    alarmBackdrop.classList.add('open');
+
+    // Reprograma para dentro de 1 hora automáticamente; si marcan salida o
+    // posponen antes, esto se reemplaza igual.
+    posponerAlarma(nombre);
+  }
+
+  function cerrarModalAlarma(){
+    alarmBackdrop.classList.remove('open');
+    alarmSonando = false;
+    clearInterval(alarmBeepInterval);
+  }
+
+  $('alarmPosponer').addEventListener('click', cerrarModalAlarma);
+  $('alarmMarcarSalida').addEventListener('click', () => {
+    cerrarModalAlarma();
+    addRecord('salida');
+  });
+
+  function revisarAlarmas(){
+    const user = getCurrentUser();
+    if(!user) return;
+    const records = loadRecords();
+    const last = currentStatusFor(records, user);
+    if(last !== 'entrada'){
+      // Ya marcó salida o nunca marcó entrada: no debería haber alarma pendiente.
+      cancelarAlarma(user);
+      return;
+    }
+    const alarms = getAlarms();
+    const objetivo = alarms[user];
+    if(objetivo && new Date() >= new Date(objetivo)){
+      dispararAlarma(user);
+    }
+  }
+
+  function getRoster(){
+    try{
+      const raw = JSON.parse(localStorage.getItem(LS_ROSTER)||'[]');
+      // Compatibilidad: versiones previas guardaban solo strings (sin departamento).
+      return raw.map(p => typeof p === 'string' ? { nombre: p, departamento: 'chofer' } : { nombre: p.nombre, departamento: p.departamento || 'chofer' });
+    }catch(e){ return []; }
+  }
+  function saveRoster(list){ localStorage.setItem(LS_ROSTER, JSON.stringify(list)); }
+  function getDepartamento(nombre){
+    const encontrado = getRoster().find(p => p.nombre === nombre);
+    return encontrado ? encontrado.departamento : 'chofer';
+  }
+  function getCurrentUser(){ return localStorage.getItem(LS_CURRENT_USER) || ''; }
+  function setCurrentUser(name){ localStorage.setItem(LS_CURRENT_USER, name); }
+  function getLockedUser(){ return localStorage.getItem(LS_LOCKED_USER) || ''; }
+  function lockPhoneTo(name){
+    localStorage.setItem(LS_LOCKED_USER, name);
+    localStorage.setItem(LS_CURRENT_USER, name);
+  }
+  function unlockPhone(){
+    localStorage.removeItem(LS_LOCKED_USER);
+  }
+
+  // Si el enlace trae ?persona=Nombre, este teléfono queda fijado a esa
+  // persona para siempre (hasta que un admin lo desvincule con el PIN).
+  (function detectarEnlacePersonal(){
+    const params = new URLSearchParams(window.location.search);
+    const persona = params.get('persona');
+    if(persona){
+      lockPhoneTo(persona);
+      if(window.history && window.history.replaceState){
+        window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+      }
+    }
+  })();
+
+  function generarEnlacePersona(nombre){
+    return window.location.origin + window.location.pathname + '?persona=' + encodeURIComponent(nombre);
+  }
+
+  async function copiarEnlace(nombre){
+    const link = generarEnlacePersona(nombre);
+    try{
+      await navigator.clipboard.writeText(link);
+      showToast('Enlace copiado para ' + nombre);
+    }catch(e){
+      window.prompt('Copiá este enlace para ' + nombre + ':', link);
+    }
+  }
+
+  function showToast(msg, isErr){
+    toast.textContent = msg;
+    toast.classList.toggle('err', !!isErr);
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=> toast.classList.remove('show'), 2600);
+  }
+
+  function tickClock(){
+    const now = new Date();
+    hmEl.textContent = pad(now.getHours())+':'+pad(now.getMinutes());
+    ssEl.textContent = ':'+pad(now.getSeconds());
+    const opts = { weekday:'long', day:'numeric', month:'long', year:'numeric' };
+    let dl = now.toLocaleDateString('es-CR', opts);
+    dateLine.textContent = dl.charAt(0).toUpperCase()+dl.slice(1);
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  function currentStatusFor(records, nombre){
+    if(!nombre) return null;
+    const filtered = records.filter(r => r.nombre === nombre);
+    if(filtered.length === 0) return null;
+    return filtered[filtered.length-1].tipo;
+  }
+
+  function render(){
+    const records = loadRecords();
+    const today = todayKey(new Date());
+    const todays = records.filter(r => r.fecha === today);
+    const user = getCurrentUser();
+    const locked = getLockedUser();
+
+    whoName.textContent = user || 'Sin seleccionar';
+    whoBtn.textContent = locked ? '🔒' : 'Cambiar';
+    whoBtn.title = locked ? 'Este teléfono está fijado a ' + locked : 'Cambiar quién marca';
+
+    if(locked){
+      mainTitle.innerHTML = 'Hola, ' + locked + '<div class="app-subtitle">Registro de Horas</div>';
+    } else {
+      mainTitle.textContent = 'Registro de Horas';
+    }
+
+    if(!user){
+      statusBadge.textContent = 'FUERA';
+      statusBadge.className = 'status-badge out';
+      statusText.textContent = 'Elegí quién marca';
+      btnEntrada.disabled = true;
+      btnSalida.disabled = true;
+      tripsRow.style.display = 'none';
+    } else {
+      const todaysUserPre = todays.filter(r => r.nombre === user);
+      const esFinSemanaHoy = esFinDeSemana(today);
+      const viajesHoy = todaysUserPre.filter(r => r.tipo === 'salida').length;
+      const maxAlcanzado = esFinSemanaHoy && viajesHoy >= MAX_VIAJES_FIN_DE_SEMANA;
+
+      if(esFinSemanaHoy){
+        tripsRow.style.display = 'flex';
+        tripsLabel.textContent = getDepartamento(user) === 'chofer' ? 'Viajes de hoy (fin de semana)' : 'Marcas de hoy (fin de semana)';
+        tripsBadge.textContent = viajesHoy + '/' + MAX_VIAJES_FIN_DE_SEMANA;
+        tripsBadge.className = 'status-badge weekend-count' + (maxAlcanzado ? ' maxed' : '');
+      } else {
+        tripsRow.style.display = 'none';
+      }
+
+      const last = currentStatusFor(records, user);
+      if(last === 'entrada'){
+        statusBadge.textContent = 'ADENTRO';
+        statusBadge.className = 'status-badge in';
+        statusText.textContent = 'Turno activo';
+        btnEntrada.disabled = true;
+        btnSalida.disabled = false;
+      } else if(last === 'salida'){
+        statusBadge.textContent = 'FUERA';
+        statusBadge.className = 'status-badge out';
+        btnSalida.disabled = true;
+        if(maxAlcanzado){
+          statusText.textContent = 'Máximo de 10 viajes alcanzado';
+          btnEntrada.disabled = true;
+        } else {
+          statusText.textContent = 'Turno cerrado';
+          btnEntrada.disabled = false;
+        }
+      } else {
+        statusBadge.textContent = 'FUERA';
+        statusBadge.className = 'status-badge out';
+        btnSalida.disabled = true;
+        if(maxAlcanzado){
+          statusText.textContent = 'Máximo de 10 viajes alcanzado';
+          btnEntrada.disabled = true;
+        } else {
+          statusText.textContent = 'Sin marcar hoy';
+          btnEntrada.disabled = false;
+        }
+      }
+    }
+
+    const todaysUser = todays.filter(r => r.nombre === user);
+    const lastEntrada = [...todaysUser].reverse().find(r => r.tipo === 'entrada');
+    const lastSalida = [...todaysUser].reverse().find(r => r.tipo === 'salida');
+    lastEntradaLbl.textContent = lastEntrada ? lastEntrada.hora : '—';
+    lastSalidaLbl.textContent = lastSalida ? lastSalida.hora : '—';
+
+    // log (todo el personal, para que quede visibilidad de todos los que marcaron hoy)
+    if(todays.length === 0){
+      logList.innerHTML = '<div class="log-empty">Todavía no hay registros hoy.</div>';
+    } else {
+      logList.innerHTML = [...todays].reverse().map(r => `
+        <div class="log-row ${r.finDeSemana ? 'weekend' : ''}">
+          <div class="log-tag ${r.tipo}"></div>
+          <div class="log-main">
+            <div class="log-type">${r.tipo === 'entrada' ? 'Entrada' : 'Salida'} <span class="log-name">· ${r.nombre || 'Sin nombre'}${r.departamento && r.departamento !== 'chofer' ? ' (' + etiquetaDepartamento(r.departamento) + ')' : ''}</span>${r.finDeSemana ? ' <span class="log-weekend-badge">· Fin de semana</span>' : ''}</div>
+            <div class="log-time">${r.hora}</div>
+            ${r.tipo === 'salida' && r.horasTrabajadas != null ? `
+              <div class="log-hours ${r.horasExtra > 0 ? 'extra' : ''}">
+                ${formatHorasMin(r.horasTrabajadas)} trabajadas${r.horasExtra > 0 ? ' · ' + formatHorasMin(r.horasExtra) + ' extra' : ''}
+              </div>` : ''}
+          </div>
+          <div class="log-state ${r.enviado ? 'enviado' : 'pendiente'}">${r.enviado ? 'Enviado' : 'Pendiente'}</div>
+        </div>
+      `).join('');
+    }
+
+    const pending = records.filter(r => !r.enviado).length;
+    pendingCount.textContent = pending;
+    btnEnviar.disabled = pending === 0;
+
+    if(getWebhook()){
+      connDot.classList.remove('off');
+      connLabel.textContent = 'Conectado a Drive';
+    } else {
+      connDot.classList.add('off');
+      connLabel.textContent = 'Sin configurar';
+    }
+
+    renderPersonList();
+    renderRosterAdmin();
+    renderPhoneLockCard();
+  }
+
+  function renderPhoneLockCard(){
+    const locked = getLockedUser();
+    if(locked){
+      phoneLockCard.innerHTML = `
+        <span class="lock-badge">🔒 VINCULADO</span>
+        Este teléfono marca siempre como <b>${locked}</b>.
+        <button class="gear" id="unlockPhoneBtn" style="align-self:flex-start;">Desvincular este teléfono (pide PIN)</button>
+      `;
+      $('unlockPhoneBtn').addEventListener('click', desvincularTelefono);
+    } else {
+      phoneLockCard.innerHTML = `
+        <span class="lock-badge">🔓 SIN VINCULAR</span>
+        Cualquiera puede elegir su nombre en este teléfono. Para fijarlo a una sola persona, copiá su enlace personal desde la lista de abajo y que lo abra en su propio teléfono.
+      `;
+    }
+  }
+
+  async function desvincularTelefono(){
+    const webhook = getWebhook();
+    if(!webhook){ showToast('Configurá primero la URL de Drive', true); return; }
+    const pin = await pedirPin();
+    if(!pin) return;
+    try{
+      const res = await fetch(webhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ accion: 'validarPin', pin })
+      });
+      const data = await res.json();
+      if(data.ok){
+        unlockPhone();
+        render();
+        showToast('Teléfono desvinculado');
+      } else {
+        showToast(data.error || 'PIN incorrecto', true);
+      }
+    }catch(e){
+      showToast('Error de conexión al validar el PIN', true);
+    }
+  }
+
+  function addRecord(tipo){
+    const user = getCurrentUser();
+    if(!user){
+      personBackdrop.classList.add('open');
+      showToast('Elegí primero quién marca', true);
+      return;
+    }
+    const now = new Date();
+    const records = loadRecords();
+    const fecha = todayKey(now);
+
+    if(tipo === 'entrada' && esFinDeSemana(fecha)){
+      const viajesHoy = records.filter(r => r.nombre === user && r.fecha === fecha && r.tipo === 'salida').length;
+      if(viajesHoy >= MAX_VIAJES_FIN_DE_SEMANA){
+        showToast('Ya se registraron los 10 viajes permitidos hoy para ' + user, true);
+        return;
+      }
+    }
+
+    const nuevo = {
+      tipo,
+      fecha,
+      hora: pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds()),
+      timestamp: now.toISOString(),
+      nombre: user,
+      departamento: getDepartamento(user),
+      enviado: false,
+      finDeSemana: esFinDeSemana(fecha)
+    };
+
+    let mensajeExtra = '';
+    if(tipo === 'salida'){
+      const propios = records.filter(r => r.nombre === user);
+      const entradaAbierta = propios.length && propios[propios.length - 1].tipo === 'entrada'
+        ? propios[propios.length - 1]
+        : null;
+      if(entradaAbierta){
+        const horas = (now - new Date(entradaAbierta.timestamp)) / 3600000;
+        const viajeFinDeSemana = nuevo.finDeSemana || esFinDeSemana(entradaAbierta.fecha);
+        const limite = limiteOrdinarias(nuevo.departamento);
+        nuevo.horasTrabajadas = Math.round(horas * 100) / 100;
+        if(viajeFinDeSemana){
+          // Sábados y domingos: todo el turno (entrada a salida) cuenta como extra.
+          nuevo.horasOrdinarias = 0;
+          nuevo.horasExtra = nuevo.horasTrabajadas;
+          nuevo.finDeSemana = true;
+        } else {
+          nuevo.horasOrdinarias = Math.round(Math.min(horas, limite) * 100) / 100;
+          nuevo.horasExtra = Math.round(Math.max(horas - limite, 0) * 100) / 100;
+        }
+        if(nuevo.horasExtra > 0){
+          mensajeExtra = ' · ' + formatHorasMin(nuevo.horasExtra) + ' extra' + (viajeFinDeSemana ? ' (fin de semana)' : '');
+        }
+      }
+    }
+
+    records.push(nuevo);
+    saveRecords(records);
+
+    if(tipo === 'entrada'){
+      programarAlarma(user, nuevo.timestamp);
+    } else {
+      cancelarAlarma(user);
+      cerrarModalAlarma();
+    }
+
+    render();
+    showToast((tipo === 'entrada' ? 'Entrada' : 'Salida') + ' marcada · ' + user + mensajeExtra, nuevo.horasExtra > 0);
+    if(getWebhook()){
+      sendPending(true);
+    }
+  }
+
+  btnEntrada.addEventListener('click', () => addRecord('entrada'));
+  btnSalida.addEventListener('click', () => addRecord('salida'));
+
+  async function sendPending(silent){
+    const webhook = getWebhook();
+    if(!webhook){
+      settingsBackdrop.classList.add('open');
+      showToast('Configurá primero la conexión con Drive', true);
+      return;
+    }
+    const records = loadRecords();
+    const pending = records.filter(r => !r.enviado);
+    if(pending.length === 0){
+      if(!silent) showToast('No hay registros pendientes');
+      return;
+    }
+    btnEnviar.classList.add('loading');
+    btnEnviar.disabled = true;
+    let sentAny = false;
+    for(const rec of records){
+      if(rec.enviado) continue;
+      try{
+        const res = await fetch(webhook, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(rec)
+        });
+        if(res.ok){
+          rec.enviado = true;
+          sentAny = true;
+        }
+      }catch(e){ /* keep pending, network error */ }
+    }
+    saveRecords(records);
+    btnEnviar.classList.remove('loading');
+    render();
+    if(sentAny) showToast('Registros enviados a Drive');
+    else if(!silent) showToast('No se pudo enviar. Revisá la URL o tu conexión.', true);
+  }
+
+  btnEnviar.addEventListener('click', () => sendPending(false));
+
+  /* ---------- Selector "¿Quién marca?" ---------- */
+
+  function renderPersonList(){
+    const roster = getRoster();
+    const user = getCurrentUser();
+    if(roster.length === 0){
+      personList.innerHTML = '<div class="empty-roster">Todavía no hay personal cargado. Agregalo desde Ajustes.</div>';
+      return;
+    }
+    personList.innerHTML = roster.map(p => `
+      <div class="person-option ${p.nombre === user ? 'active' : ''}" data-nombre="${p.nombre}">
+        <span>${p.nombre}${p.departamento !== 'chofer' ? ' <span class="log-name">· ' + etiquetaDepartamento(p.departamento) + '</span>' : ''}</span>
+        <span>${p.nombre === user ? '✓' : ''}</span>
+      </div>
+    `).join('');
+    personList.querySelectorAll('.person-option').forEach(el => {
+      el.addEventListener('click', () => {
+        setCurrentUser(el.getAttribute('data-nombre'));
+        personBackdrop.classList.remove('open');
+        render();
+      });
+    });
+  }
+
+  whoBtn.addEventListener('click', () => {
+    if(getLockedUser()){
+      showToast('Este teléfono está fijado a ' + getLockedUser() + '. Solo un admin puede cambiarlo (Ajustes).', true);
+      return;
+    }
+    personBackdrop.classList.add('open');
+  });
+  $('cancelPerson').addEventListener('click', () => personBackdrop.classList.remove('open'));
+  personBackdrop.addEventListener('click', (e) => { if(e.target === personBackdrop) personBackdrop.classList.remove('open'); });
+
+  /* ---------- Roster: sincronización con Drive ---------- */
+
+  async function fetchRoster(silent){
+    const webhook = getWebhook();
+    if(!webhook) return;
+    try{
+      const url = webhook + (webhook.includes('?') ? '&' : '?') + 'accion=personal';
+      const res = await fetch(url);
+      const data = await res.json();
+      if(data.ok && Array.isArray(data.personal)){
+        saveRoster(data.personal);
+        render();
+        if(!silent) showToast('Lista de personal actualizada');
+      }
+    }catch(e){
+      if(!silent) showToast('No se pudo actualizar la lista', true);
+    }
+  }
+
+  function renderRosterAdmin(){
+    const roster = getRoster();
+    if(roster.length === 0){
+      rosterAdminList.innerHTML = '<div class="empty-roster">Sin personal cargado todavía.</div>';
+    } else {
+      rosterAdminList.innerHTML = roster.map(p => `
+        <div class="roster-row">
+          <span class="roster-name">${p.nombre} <span class="log-name">· ${etiquetaDepartamento(p.departamento)}</span></span>
+          <div class="roster-btns">
+            <button class="link" data-nombre="${p.nombre}">Enlace</button>
+            <button class="quitar" data-nombre="${p.nombre}">Quitar</button>
+          </div>
+        </div>
+      `).join('');
+      rosterAdminList.querySelectorAll('.quitar').forEach(btn => {
+        btn.addEventListener('click', () => quitarPersona(btn.getAttribute('data-nombre')));
+      });
+      rosterAdminList.querySelectorAll('.link').forEach(btn => {
+        btn.addEventListener('click', () => copiarEnlace(btn.getAttribute('data-nombre')));
+      });
+    }
+
+    const selectCorreccion = $('correccionNombre');
+    if(selectCorreccion){
+      const seleccionPrevia = selectCorreccion.value;
+      selectCorreccion.innerHTML = roster.length
+        ? roster.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('')
+        : '<option value="">Sin personal cargado</option>';
+      if(roster.some(p => p.nombre === seleccionPrevia)) selectCorreccion.value = seleccionPrevia;
+    }
+  }
+
+  async function pedirPin(){
+    return window.prompt('Código de administrador:');
+  }
+  async function pedirPinPrincipal(){
+    return window.prompt('PIN principal de administrador:');
+  }
+
+  async function agregarPersona(){
+    const nombre = newPersonInput.value.trim();
+    const departamento = $('newPersonDept').value;
+    if(!nombre){ showToast('Escribí un nombre', true); return; }
+    const webhook = getWebhook();
+    if(!webhook){ showToast('Configurá primero la URL de Drive', true); return; }
+    const pin = await pedirPin();
+    if(!pin) return;
+    try{
+      const res = await fetch(webhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ accion: 'agregarPersona', nombre, departamento, pin })
+      });
+      const data = await res.json();
+      if(data.ok){
+        saveRoster(data.personal || [...getRoster(), { nombre, departamento }]);
+        newPersonInput.value = '';
+        render();
+        showToast('Persona agregada');
+      } else {
+        showToast(data.error || 'No se pudo agregar', true);
+      }
+    }catch(e){
+      showToast('Error de conexión al agregar', true);
+    }
+  }
+
+  async function quitarPersona(nombre){
+    const webhook = getWebhook();
+    if(!webhook){ showToast('Configurá primero la URL de Drive', true); return; }
+    if(!window.confirm('¿Quitar a ' + nombre + ' de la lista?')) return;
+    const pin = await pedirPin();
+    if(!pin) return;
+    try{
+      const res = await fetch(webhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ accion: 'quitarPersona', nombre, pin })
+      });
+      const data = await res.json();
+      if(data.ok){
+        saveRoster(data.personal || getRoster().filter(p => p.nombre !== nombre));
+        if(getCurrentUser() === nombre) setCurrentUser('');
+        render();
+        showToast('Persona quitada');
+      } else {
+        showToast(data.error || 'No se pudo quitar', true);
+      }
+    }catch(e){
+      showToast('Error de conexión al quitar', true);
+    }
+  }
+
+  /* ---------- Administradores ---------- */
+
+  async function fetchAdmins(){
+    const webhook = getWebhook();
+    if(!webhook) return;
+    try{
+      const url = webhook + (webhook.includes('?') ? '&' : '?') + 'accion=administradores';
+      const res = await fetch(url);
+      const data = await res.json();
+      if(data.ok) renderAdminList(data.administradores || []);
+    }catch(e){ /* sin conexión, se queda con lo que había */ }
+  }
+
+  function renderAdminList(nombres){
+    const el = $('adminList');
+    if(!nombres.length){
+      el.innerHTML = '<div class="empty-roster">Sin administradores adicionales. Solo existe el PIN principal.</div>';
+      return;
+    }
+    el.innerHTML = nombres.map(n => `
+      <div class="roster-row">
+        <span class="roster-name">${n}</span>
+        <div class="roster-btns"><button class="quitar" data-nombre="${n}">Quitar</button></div>
+      </div>
+    `).join('');
+    el.querySelectorAll('.quitar').forEach(btn => {
+      btn.addEventListener('click', () => quitarAdmin(btn.getAttribute('data-nombre')));
+    });
+  }
+
+  async function agregarAdmin(){
+    const nombreAdmin = $('newAdminNombre').value.trim();
+    const codigoAdmin = $('newAdminCodigo').value.trim();
+    if(!nombreAdmin || !codigoAdmin){ showToast('Completá nombre y código', true); return; }
+    const webhook = getWebhook();
+    if(!webhook){ showToast('Configurá primero la URL de Drive', true); return; }
+    const pin = await pedirPinPrincipal();
+    if(!pin) return;
+    try{
+      const res = await fetch(webhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ accion: 'agregarAdmin', pin, nombreAdmin, codigoAdmin })
+      });
+      const data = await res.json();
+      if(data.ok){
+        $('newAdminNombre').value = '';
+        $('newAdminCodigo').value = '';
+        renderAdminList(data.administradores || []);
+        showToast('Administrador agregado');
+      } else {
+        showToast(data.error || 'No se pudo agregar', true);
+      }
+    }catch(e){
+      showToast('Error de conexión al agregar', true);
+    }
+  }
+
+  async function quitarAdmin(nombreAdmin){
+    const webhook = getWebhook();
+    if(!webhook){ showToast('Configurá primero la URL de Drive', true); return; }
+    if(!window.confirm('¿Quitar a ' + nombreAdmin + ' como administrador?')) return;
+    const pin = await pedirPinPrincipal();
+    if(!pin) return;
+    try{
+      const res = await fetch(webhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ accion: 'quitarAdmin', pin, nombreAdmin })
+      });
+      const data = await res.json();
+      if(data.ok){
+        renderAdminList(data.administradores || []);
+        showToast('Administrador quitado');
+      } else {
+        showToast(data.error || 'No se pudo quitar', true);
+      }
+    }catch(e){
+      showToast('Error de conexión al quitar', true);
+    }
+  }
+
+  $('addAdminBtn').addEventListener('click', agregarAdmin);
+
+  /* ---------- Cambiar el PIN principal (ceder control total) ---------- */
+
+  async function cambiarPinMaestro(){
+    const webhook = getWebhook();
+    if(!webhook){ showToast('Configurá primero la URL de Drive', true); return; }
+
+    const pinActual = await pedirPinPrincipal();
+    if(!pinActual) return;
+
+    const nuevoPin = window.prompt('Nuevo PIN principal:');
+    if(!nuevoPin) return;
+    const confirmacion = window.prompt('Repetí el nuevo PIN principal para confirmar:');
+    if(!confirmacion) return;
+    if(nuevoPin.trim() !== confirmacion.trim()){
+      showToast('Los dos PIN no coinciden. No se hizo ningún cambio.', true);
+      return;
+    }
+    if(!window.confirm('Esto reemplaza el PIN principal actual de inmediato. Guardá el PIN nuevo en un lugar seguro antes de continuar. ¿Confirmás?')) return;
+
+    try{
+      const res = await fetch(webhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ accion: 'cambiarPinMaestro', pinActual, nuevoPin: nuevoPin.trim() })
+      });
+      const data = await res.json();
+      if(data.ok){
+        showToast('PIN principal actualizado. El anterior ya no funciona.');
+      } else {
+        showToast(data.error || 'No se pudo cambiar el PIN', true);
+      }
+    }catch(e){
+      showToast('Error de conexión al cambiar el PIN', true);
+    }
+  }
+
+  $('cambiarPinBtn').addEventListener('click', cambiarPinMaestro);
+
+  /* ---------- Corrección de marcas ---------- */
+
+  async function buscarRegistrosCorreccion(){
+    const nombre = $('correccionNombre').value;
+    const fecha = $('correccionFecha').value;
+    if(!nombre || !fecha){ showToast('Elegí persona y fecha', true); return; }
+    const webhook = getWebhook();
+    if(!webhook){ showToast('Configurá primero la URL de Drive', true); return; }
+    const codigo = await pedirPin();
+    if(!codigo) return;
+    try{
+      const res = await fetch(webhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ accion: 'buscarRegistros', codigo, nombre, fecha })
+      });
+      const data = await res.json();
+      if(data.ok){
+        renderResultadosCorreccion(data.registros || [], codigo);
+      } else {
+        showToast(data.error || 'No se pudo buscar', true);
+      }
+    }catch(e){
+      showToast('Error de conexión al buscar', true);
+    }
+  }
+
+  function renderResultadosCorreccion(registros, codigo){
+    const el = $('correccionResultados');
+    if(!registros.length){
+      el.innerHTML = '<div class="empty-roster">No hay registros para esa persona en esa fecha.</div>';
+      return;
+    }
+    el.innerHTML = registros.map((r, i) => `
+      <div class="roster-row" style="flex-wrap:wrap;">
+        <span class="roster-name">${r.tipo}${r.corregidoPor ? ' · corregido por ' + r.corregidoPor : ''}</span>
+        <div class="roster-btns">
+          <input type="time" step="1" value="${r.hora}" id="correccionHora_${i}"
+                 style="border:1px solid var(--line); border-radius:8px; padding:6px; font-family:'IBM Plex Mono',monospace; font-size:12px;">
+          <button class="link" data-idx="${i}">Guardar</button>
+        </div>
+      </div>
+    `).join('');
+    el.querySelectorAll('.link').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idx = parseInt(btn.getAttribute('data-idx'), 10);
+        const registro = registros[idx];
+        const nuevaHora = $('correccionHora_' + idx).value;
+        if(!nuevaHora){ showToast('Elegí una hora', true); return; }
+        await guardarCorreccion(registro, nuevaHora, codigo);
+      });
+    });
+  }
+
+  async function guardarCorreccion(registro, nuevaHora, codigo){
+    const webhook = getWebhook();
+    try{
+      const res = await fetch(webhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ accion: 'corregirMarca', codigo, hoja: registro.hoja, fila: registro.fila, nuevaHora })
+      });
+      const data = await res.json();
+      if(data.ok){
+        showToast('Registro corregido');
+      } else {
+        showToast(data.error || 'No se pudo corregir', true);
+      }
+    }catch(e){
+      showToast('Error de conexión al corregir', true);
+    }
+  }
+
+  $('buscarRegistrosBtn').addEventListener('click', buscarRegistrosCorreccion);
+
+  $('addPersonBtn').addEventListener('click', agregarPersona);
+  $('refreshRosterBtn').addEventListener('click', () => fetchRoster(false));
+
+  // Settings sheet
+  $('openSettings').addEventListener('click', () => {
+    webhookInput.value = getWebhook();
+    settingsBackdrop.classList.add('open');
+    renderRosterAdmin();
+    pedirPermisoNotificaciones();
+    fetchAdmins();
+    if(!$('correccionFecha').value) $('correccionFecha').value = todayKey(new Date());
+  });
+  $('cancelSettings').addEventListener('click', () => settingsBackdrop.classList.remove('open'));
+  settingsBackdrop.addEventListener('click', (e) => { if(e.target === settingsBackdrop) settingsBackdrop.classList.remove('open'); });
+  $('saveSettings').addEventListener('click', () => {
+    localStorage.setItem(LS_WEBHOOK, webhookInput.value.trim());
+    settingsBackdrop.classList.remove('open');
+    render();
+    showToast('Ajustes guardados');
+    fetchRoster(true);
+  });
+
+  window.addEventListener('online', () => sendPending(true));
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+
+  render();
+  fetchRoster(true);
+  pedirPermisoNotificaciones();
+  revisarAlarmas();
+  setInterval(revisarAlarmas, 20000);
+})();
+</script>
+</body>
+</html>
