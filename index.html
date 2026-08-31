@@ -285,6 +285,7 @@
     transition: opacity .25s ease, transform .25s ease;
     max-width: 90%;
     text-align:center;
+    z-index:100;
   }
   .toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
   .toast.err{ background: var(--danger); }
@@ -303,6 +304,10 @@
     display:none; align-items:flex-end; justify-content:center; z-index:50;
   }
   .sheet-backdrop.open{ display:flex; }
+  /* El modal de código se abre casi siempre por encima de otra ventana ya
+     abierta (Ajustes, Corregir un registro, etc.), así que necesita quedar
+     por delante de todas — si no, se abre "detrás" y parece que no pasa nada. */
+  #codeModalBackdrop{ z-index:70; }
   .sheet{
     background: var(--paper);
     width:100%; max-width:440px;
